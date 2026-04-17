@@ -110,7 +110,7 @@
       <input type="text" id="search-h" placeholder="名前 / 場所" style="width:140px;font-size:.82rem;" oninput="renderHistory()">
     </div>
     <div class="filter-bar" id="season-filter">
-      <span style="font-size:.76rem;color:var(--muted);">シーズン:</span>
+      <span style="font-size:.76rem;color:var(--muted);">年度:</span>
       <button class="filter-btn active" onclick="setSeason(this,'all')">全て</button>
       <button class="filter-btn" onclick="setSeason(this,'2025')">2025</button>
       <button class="filter-btn" onclick="setSeason(this,'2024')">2024</button>
@@ -128,7 +128,7 @@
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:.76rem;color:var(--muted);">絞込:</span>
         <select id="player-filter-type" onchange="renderPlayers()" style="font-size:.8rem;padding:4px 8px;">
-          <option value="season">シーズン別</option>
+          <option value="season">年度別</option>
           <option value="venue">会場別</option>
         </select>
         <select id="player-filter-val" onchange="renderPlayers()" style="font-size:.8rem;padding:4px 8px;"></select>
@@ -149,10 +149,10 @@
     <div class="section-header">
       <h2>ポイント推移グラフ</h2>
       <select id="graph-season" onchange="renderGraph()" style="font-size:.82rem;padding:5px 10px;">
-        <option value="all">全シーズン</option>
-        <option value="2025">2025シーズン</option>
-        <option value="2024">2024シーズン</option>
-        <option value="2023">2023シーズン</option>
+        <option value="all">全年度</option>
+        <option value="2025">2025年度</option>
+        <option value="2024">2024年度</option>
+        <option value="2023">2023年度</option>
       </select>
     </div>
     <div id="player-checkboxes" class="player-checkbox-grid"></div>
@@ -163,26 +163,45 @@
 
 <!-- INPUT -->
 <div id="page-input" class="page">
-  <div class="card">
-    <div class="card-title">対局結果を入力</div>
-    <div class="form-grid" style="margin-bottom:1rem;">
+  <!-- STEP 1: 対局情報 -->
+  <div id="step1-card" class="card">
+    <div class="card-title">📋 STEP 1 — 対局情報</div>
+    <div class="form-grid" style="margin-bottom:1.2rem;">
       <div class="form-group"><label>対局日</label><input type="date" id="inp-date"></div>
       <div class="form-group"><label>場所</label><input type="text" id="inp-venue" placeholder="例：柳　赤坂店" list="venue-list">
         <datalist id="venue-list"></datalist>
       </div>
-      <div class="form-group"><label>シーズン</label>
-        <select id="inp-season"><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select>
-      </div>
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1.2fr 1.2fr;gap:8px;margin-bottom:6px;padding:0 4px;">
-      <div style="font-size:.72rem;font-weight:700;color:var(--muted);">プレイヤー名</div>
-      <div style="font-size:.72rem;font-weight:700;color:var(--muted);">順位</div>
-      <div style="font-size:.72rem;font-weight:700;color:var(--muted);">点数</div>
-      <div style="font-size:.72rem;font-weight:700;color:var(--muted);">チップ</div>
+    <div style="margin-bottom:.6rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:.78rem;font-weight:700;color:var(--muted);">参加プレイヤー（4〜6名）</span>
+      <button class="btn btn-secondary" onclick="addPlayerSlot()" style="padding:4px 10px;font-size:.78rem;">＋ 追加</button>
+      <button class="btn btn-secondary" onclick="removePlayerSlot()" style="padding:4px 10px;font-size:.78rem;">－ 削除</button>
     </div>
-    <div id="input-rows"></div>
+    <div id="player-slots"></div>
     <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="goToStep2()">次へ：半荘を入力 →</button>
+      <button class="btn btn-secondary" onclick="initInput()">クリア</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 半荘入力 -->
+  <div id="step2-card" class="card" style="display:none;">
+    <div class="card-title" id="step2-title">🀄 STEP 2 — 半荘結果入力</div>
+    <div id="step2-meta" style="font-size:.82rem;color:var(--muted);margin-bottom:1rem;"></div>
+
+    <div id="rounds-list"></div>
+
+    <button class="btn btn-secondary" onclick="addRound()" style="margin-bottom:1rem;">＋ 半荘を追加</button>
+
+    <!-- チップ入力（対局日単位） -->
+    <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem;">
+      <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:.6rem;">🪙 チップ（対局日合計）</div>
+      <div id="chip-inputs" style="display:grid;gap:6px;"></div>
+    </div>
+
+    <div style="margin-top:1.2rem;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="saveNewGame()">💾 保存</button>
+      <button class="btn btn-secondary" onclick="backToStep1()">← 戻る</button>
       <button class="btn btn-secondary" onclick="initInput()">クリア</button>
     </div>
   </div>
@@ -292,7 +311,7 @@ function renderHistory(){
     const sc={'2023':'s23','2024':'s24','2025':'s25'}[sess.season]||'s25';
     return `<div class="session-block">
       <div class="session-header" onclick="toggleSession(${i})">
-        <span class="season-badge ${sc}">${sess.season}</span>
+        <span class="season-badge ${sc}">${sess.season}年度</span>
         <span style="font-weight:600;font-size:.9rem">${sess.date.replace(/-/g,'/')}</span>
         <span style="color:var(--muted);font-size:.82rem">${normalizeVenue(sess.venue)||''}</span>
         <span style="color:var(--muted);font-size:.78rem;margin-left:auto">${rc}半荘 / ${parts.join('・')}</span>
@@ -318,7 +337,7 @@ function initPlayerFilter(){
   function updateOpts(){
     const type=typeEl.value;
     if(type==='season'){
-      valEl.innerHTML='<option value="all">全体</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option>';
+      valEl.innerHTML='<option value="all">全体</option><option value="2025">2025年度</option><option value="2024">2024年度</option><option value="2023">2023年度</option>';
     } else {
       const venues=getVenues();
       valEl.innerHTML='<option value="all">全会場</option>'+venues.map(v=>`<option value="${v}">${v}</option>`).join('');
@@ -440,44 +459,168 @@ function renderGraph(){
   drawGraph();
 }
 
-// --- INPUT ---
+// --- INPUT (2-step) ---
+let currentPlayers = []; // set in step1
+let currentRoundCount = 0;
+
 function initInput(){
-  document.getElementById('inp-date').value=new Date().toISOString().split('T')[0];
-  // Populate venue datalist
-  const dl=document.getElementById('venue-list');
-  dl.innerHTML=getVenues().map(v=>`<option value="${v}">`).join('');
-  const rows=document.getElementById('input-rows');
-  rows.innerHTML='';
-  const opts=ALL_PLAYERS.map(p=>`<option value="${p}">${p}</option>`).join('');
-  for(let i=0;i<4;i++){
-    rows.innerHTML+=`<div style="display:grid;grid-template-columns:2fr 1fr 1.2fr 1.2fr;gap:8px;margin-bottom:8px;align-items:center">
-      <div style="display:flex;gap:4px;align-items:center">
-        <span class="rank rank-${i+1}">${i+1}</span>
-        <input list="pl-${i}" id="ip${i}-n" placeholder="プレイヤー名" style="flex:1">
-        <datalist id="pl-${i}">${opts}</datalist>
-      </div>
-      <select id="ip${i}-r"><option value="1">1位</option><option value="2">2位</option><option value="3">3位</option><option value="4">4位</option></select>
-      <input type="number" id="ip${i}-s" placeholder="点数" step="1">
-      <input type="number" id="ip${i}-c" placeholder="チップ" step="1">
+  currentPlayers = [];
+  currentRoundCount = 0;
+  document.getElementById('inp-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('inp-venue').value = '';
+  const dl = document.getElementById('venue-list');
+  dl.innerHTML = getVenues().map(v=>`<option value="${v}">`).join('');
+  // Show step1, hide step2
+  document.getElementById('step1-card').style.display = '';
+  document.getElementById('step2-card').style.display = 'none';
+  renderPlayerSlots(4);
+}
+
+function renderPlayerSlots(count){
+  const opts = ALL_PLAYERS.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const slots = document.getElementById('player-slots');
+  const existing = [];
+  slots.querySelectorAll('input').forEach(el=>existing.push(el.value.trim()));
+  slots.innerHTML = '';
+  for(let i=0;i<count;i++){
+    const val = existing[i]||'';
+    slots.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+      <span style="width:22px;text-align:right;font-size:.82rem;color:var(--muted);">${i+1}.</span>
+      <input list="ps-${i}" id="ps${i}" placeholder="プレイヤー名" value="${val}" style="flex:1;max-width:220px;">
+      <datalist id="ps-${i}">${opts}</datalist>
     </div>`;
   }
-  document.querySelectorAll('[id^="ip"][id$="-r"]').forEach((sel,i)=>sel.value=String(i+1));
 }
-function saveNewGame(){
-  const date=document.getElementById('inp-date').value;
-  const venue=document.getElementById('inp-venue').value.trim();
-  const season=document.getElementById('inp-season').value;
-  if(!date){showToast('日付を入力してください');return;}
-  const players=[],scores={},ranks={},chips={};
-  for(let i=0;i<4;i++){
-    const name=document.getElementById(`ip${i}-n`).value.trim();
-    if(!name){showToast(`${i+1}人目の名前を入力してください`);return;}
-    scores[name]=parseFloat(document.getElementById(`ip${i}-s`).value)||0;
-    ranks[name]=parseInt(document.getElementById(`ip${i}-r`).value)||i+1;
-    chips[name]=parseFloat(document.getElementById(`ip${i}-c`).value)||0;
-    players.push(name);
+
+function addPlayerSlot(){
+  const count = document.getElementById('player-slots').querySelectorAll('input').length;
+  if(count >= 6){showToast('最大6名まです');return;}
+  renderPlayerSlots(count+1);
+}
+function removePlayerSlot(){
+  const count = document.getElementById('player-slots').querySelectorAll('input').length;
+  if(count <= 4){showToast('最低4名必要です');return;}
+  renderPlayerSlots(count-1);
+}
+
+function goToStep2(){
+  const date = document.getElementById('inp-date').value;
+  if(!date){showToast('対局日を入力してください');return;}
+  const slots = document.getElementById('player-slots').querySelectorAll('input');
+  const players = [];
+  for(let i=0;i<slots.length;i++){
+    const n = slots[i].value.trim();
+    if(!n){showToast(`${i+1}人目の名前を入力してください`);return;}
+    if(players.includes(n)){showToast(`「${n}」が重複しています`);return;}
+    players.push(n);
   }
-  const sess={date,venue,season,players,rounds:[{round:'①',scores,ranks}],chips};
+  currentPlayers = players;
+  currentRoundCount = 0;
+  document.getElementById('step1-card').style.display = 'none';
+  document.getElementById('step2-card').style.display = '';
+  const venue = document.getElementById('inp-venue').value.trim();
+  document.getElementById('step2-title').textContent = `🀄 STEP 2 — 半荘結果入力`;
+  document.getElementById('step2-meta').textContent = `${date.replace(/-/g,'/')} ／ ${venue||'場所未設定'} ／ ${players.join('・')}`;
+  document.getElementById('rounds-list').innerHTML = '';
+  // chip inputs
+  const chipEl = document.getElementById('chip-inputs');
+  chipEl.style.gridTemplateColumns = `repeat(auto-fit,minmax(140px,1fr))`;
+  chipEl.innerHTML = players.map(p=>`<div style="display:flex;align-items:center;gap:6px;">
+    <label style="min-width:60px;font-size:.8rem;">${p}</label>
+    <input type="number" id="chip-${p.replace(/[()]/g,'_')}" placeholder="0" step="1" style="width:80px;">
+  </div>`).join('');
+  addRound();
+}
+
+function backToStep1(){
+  document.getElementById('step1-card').style.display = '';
+  document.getElementById('step2-card').style.display = 'none';
+}
+
+const ROUND_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+function addRound(){
+  currentRoundCount++;
+  const idx = currentRoundCount;
+  const rnum = ROUND_NUMS[idx-1]||`(${idx})`;
+  const players = currentPlayers;
+  const cols = `repeat(${players.length},1fr)`;
+  const list = document.getElementById('rounds-list');
+  const div = document.createElement('div');
+  div.id = `round-block-${idx}`;
+  div.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;';
+  div.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:.82rem;font-weight:700;color:var(--muted);">半荘 ${rnum}</span>
+    ${idx>1?`<button onclick="removeRound(${idx})" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:var(--muted);">✕ 削除</button>`:''}
+  </div>
+  <div style="display:grid;grid-template-columns:${cols};gap:6px;">
+    ${players.map(p=>`<div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px;">${p}</div>
+      <input type="number" id="r${idx}-s-${p.replace(/[()]/g,'_')}" placeholder="点数" step="1" style="width:100%;" oninput="autoRank(${idx})">
+    </div>`).join('')}
+  </div>
+  <div id="r${idx}-rank-preview" style="font-size:.75rem;color:var(--muted);margin-top:5px;"></div>`;
+  list.appendChild(div);
+}
+
+function removeRound(idx){
+  const el = document.getElementById(`round-block-${idx}`);
+  if(el) el.remove();
+}
+
+function autoRank(idx){
+  const players = currentPlayers;
+  const scores = players.map(p=>{
+    const el = document.getElementById(`r${idx}-s-${p.replace(/[()]/g,'_')}`);
+    return {p, v: el&&el.value!==''?parseFloat(el.value):null};
+  });
+  const filled = scores.filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  let preview = '';
+  if(filled.length>0){
+    preview = filled.map((x,i)=>`${i+1}位:${x.p}(${x.v>=0?'+':''}${x.v})`).join('　');
+  }
+  const el = document.getElementById(`r${idx}-rank-preview`);
+  if(el) el.textContent = preview;
+}
+
+function saveNewGame(){
+  const date = document.getElementById('inp-date').value;
+  const venue = document.getElementById('inp-venue').value.trim();
+  // derive season from year of date
+  const year = date?date.slice(0,4):'2025';
+  // fiscal year: Jan-Mar counts as previous year
+  const month = date?parseInt(date.slice(5,7)):4;
+  const season = month<=3 ? String(parseInt(year)-1) : year;
+
+  const players = currentPlayers;
+  // collect rounds
+  const roundBlocks = document.querySelectorAll('[id^="round-block-"]');
+  if(roundBlocks.length===0){showToast('半荘を1つ以上入力してください');return;}
+  const rounds = [];
+  for(let b=0;b<roundBlocks.length;b++){
+    const idx = roundBlocks[b].id.replace('round-block-','');
+    const rnum = ROUND_NUMS[b]||`(${parseInt(idx)})`;
+    const scores={}, ranks={};
+    const scored = players.map(p=>{
+      const el = document.getElementById(`r${idx}-s-${p.replace(/[()]/g,'_')}`);
+      const v = (el&&el.value!=='')?parseFloat(el.value):null;
+      scores[p]=v;
+      return {p,v};
+    });
+    // compute ranks from scores (nulls last)
+    const filled = scored.filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+    filled.forEach((x,i)=>ranks[x.p]=i+1);
+    players.forEach(p=>{if(ranks[p]===undefined)ranks[p]=null;});
+    // require at least 2 players scored
+    if(filled.length<2){showToast(`半荘${rnum}に2人以上の点数を入力してください`);return;}
+    rounds.push({round:rnum,scores,ranks});
+  }
+  // chips
+  const chips={};
+  players.forEach(p=>{
+    const el = document.getElementById(`chip-${p.replace(/[()]/g,'_')}`);
+    chips[p]=el&&el.value!==''?parseFloat(el.value):0;
+  });
+  const sess={date,venue,season,players,rounds,chips};
   userSessions.unshift(sess);
   localStorage.setItem(STORAGE_KEY,JSON.stringify(userSessions));
   loadData(); showToast('✅ 保存しました'); initInput();
